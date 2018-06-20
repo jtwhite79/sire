@@ -3,7 +3,6 @@ import shutil
 from datetime import datetime
 import numpy as np
 import pandas as pd
-import flopy
 import pyemu
 
 font = {'size'   : 8}
