@@ -13,11 +13,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.ticker as mticker
 
-import cartopy
-import cartopy.crs as ccrs
-import cartopy.io.img_tiles as cimgt
-from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
-import cartopy.feature
+
 
 import shapefile
 
@@ -26,10 +22,14 @@ master_d = "master_resp"
 sire_d = "sire"
 
 try:
+    import cartopy
+    import cartopy.crs as ccrs
+    import cartopy.io.img_tiles as cimgt
+    from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
+    import cartopy.feature
     mprj = ccrs.epsg(2193)
 except:
     print("no mprj")
-    exit()
 
 def prep_lu_df():
     lu_cats = ["dairy", "forestry", "hort", "other", "snb"]
