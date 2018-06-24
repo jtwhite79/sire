@@ -39,6 +39,7 @@ else:
 def get_const_dict():
     pst = load_pst()
     const_names = {name:1.0 for name in pst.nnz_obs_names if pst.observation_data.loc[name,"obgnme"].startswith("less_")}
+    return const_names
 
 def load_pst():
     pst = pyemu.Pst(os.path.join(base_dir,base_pst_file))
@@ -132,7 +133,7 @@ def plot_scenario_dv(infeas=False):
 
 def run_scenario(const_dict={},risk=0.5):
     infeas,phi = run_pestpp_opt(const_dict,risk=risk)
-    fig,ax = plot_scenario_dv()
+    fig,ax = plot_scenario_dv(infeas)
     ax.set_title("phi: {0:<15.3G}, risk: {1:<15.3G}".format(phi,risk))
     return fig,ax
 
