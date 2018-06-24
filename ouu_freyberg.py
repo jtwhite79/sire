@@ -55,9 +55,10 @@ def load_pst():
 
 def scrape_recfile(recfile):
     infeas = False
+    phi = -1.0e+30
     with open(recfile,'r') as f:
         for line in f:
-            if "best objective function value" in line:
+            if "best objective function value" in line.lower():
                 phi = float(line.strip().split(':')[-1])
                 #break
 
