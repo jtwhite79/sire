@@ -1,18 +1,25 @@
+import numpy as np
 import pyemu
 
 pst = pyemu.Pst("restart_org.pst")
 jco = pyemu.Jco.from_binary("restart_org.jcb")
-rei = pyemu.pst_utils.read_resfile("restart_org.rei")
 
+# get the less than constraints and set to zero weight
 obs = pst.observation_data
 forecast_names = list(obs.loc[obs.apply(lambda x: x.weight > 0 and x.obgnme.startswith("less_"),axis=1), "obsnme"].values)
 obs.loc[forecast_names, "weight"] = 0.0
 
-# calc stdev
-sc = pyemu.LinearAnalysis(pst=pst, forecasts=forecast_names)
-print(sc.prior_forecast)
-#sqrt then set weight
+sc = pyemu.Schur(pst=pst, jco=jco, forecasts=forecast_names)
+prior_fore = sc.prior_forecast.items()
 
+# reload since the sc extract the forecast rows
+pst = pyemu.Pst("restart_org.pst")
+jco = pyemu.Jco.from_binary("restart_org.jcb")
+rei = pyemu.pst_utils.read_resfile("restart_org.rei")
+
+for n,v in prior_fore:
+    pst.observation_data.loc[n,"weight"] = np.sqrt(v)
+#sqrt then set weight
 
 keep_obs = pst.nnz_obs_names
 keep_pars = list(pst.parameter_data.loc[pst.parameter_data.pargp == "k1", "parnme"].values)
