@@ -3,6 +3,7 @@ import shutil
 from datetime import datetime
 import numpy as np
 import pandas as pd
+import flopy
 import pyemu
 
 font = {'size'   : 8}
@@ -12,7 +13,11 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.ticker as mticker
 
-
+import cartopy
+import cartopy.crs as ccrs
+import cartopy.io.img_tiles as cimgt
+from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
+import cartopy.feature
 
 import shapefile
 
@@ -21,17 +26,14 @@ master_d = "master_resp"
 sire_d = "sire"
 
 try:
-    import cartopy
-    import cartopy.crs as ccrs
-    import cartopy.io.img_tiles as cimgt
-    from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
-    import cartopy.feature
     mprj = ccrs.epsg(2193)
 except:
     print("no mprj")
+    exit()
 
 def prep_lu_df():
     lu_cats = ["dairy", "forestry", "hort", "other", "snb"]
+    arr = np.loadtxt(os.path.join("_data","dnz_processed_kg_m2_d.dat"))
     r = shapefile.Reader(os.path.join("shapes", "lc_grid_join.shp"))
     fnames = [i[0].lower() for i in r.fields[1:]]
     shp_df = pd.DataFrame(r.records(), columns=fnames)
@@ -44,6 +46,7 @@ def prep_lu_df():
     df.loc[:,'j'] = shp_df.column - 1
     df.loc[:,"parnme"] = shp_df.apply(lambda x: "kg_{0:03.0f}_{1:03.0f}".format(x.row-1,x.column-1),axis=1)
     df.index = df.parnme
+    df.loc[:,"base_load"] = df.apply(lambda x: arr[x.i,x.j],axis=1)
     df.to_csv(os.path.join(sire_d,"lu_fracs.csv"))
 
 def prep_numerics():
@@ -140,7 +143,7 @@ def _load_reach_dict():
             seg_dict[seg] = [xs,ys]
     return seg_dict
 
-def plot_sire(df,spike_dict=None,tol=1.0e-4,show=False):
+def plot_sire(df,loading_df,spike_dict=None,tol=1.0e-4,show=False):
     m = flopy.modflow.Modflow.load("BH.nam", model_ws="template", forgive=False, verbose=True, check=False,
                                    load_only=[])
     if spike_dict is not None:
@@ -180,6 +183,14 @@ def plot_sire(df,spike_dict=None,tol=1.0e-4,show=False):
 
     # for seg,(x,y) in seg_dict.items():
     #   ax.plot(x,y)
+
+    load_arr = np.zeros((m.nrow,m.ncol))
+    load_arr[loading_df.i,loading_df.j] = 100.0 * (loading_df.loading_change / loading_df.base_load)
+    #load_arr = np.ma.masked_where(np.abs(resp_arr)<tol,resp_arr)
+    cb = plt.imshow(load_arr)
+    plt.colorbar(cb)
+    plt.show()
+    return
 
     fig = plt.figure(figsize=(8.5,11))
     ax = plt.subplot(111,aspect="equal")
@@ -283,20 +294,22 @@ def sire_lu_scenario(lu_change_dict,risk=0.5):
     for lu,change in lu_change_dict.items():
         if lu not in lu_df.columns:
             raise Exception(lu+" not in lu_df.columns")
-        loading_vec.loc[:,"loading_change"] += lu_df.loc[:,lu].values * change
+        loading_vec.loc[:,"loading_change"] += lu_df.loc[:,lu].values * lu_df.base_load.values * (change / 100.0)
 
     #resp_mat = pyemu.Jco.from_binary(os.path.join(sire_d, "resp_mat.jcb"))
     #loading_vec = loading_vec.loc[resp_mat.col_names,:]
     #resp_vec = resp_mat * loading_vec.loading_change.values
-
+    loading_vec.loc[:,"base_load"] = lu_df.base_load.values
+    loading_vec.loc[:,"i"] = lu_df.i.values
+    loading_vec.loc[:,"j"] = lu_df.j.values
     std_df = sire(loading_vec,risk=risk)
-    return std_df
+    return loading_vec,std_df
 
 
 if __name__ == "__main__":
     #prep_numerics()
     #prep_plotting()
-    #prep_lu_df()
+    prep_lu_df()
 
     # spike_dict = {(69, 34): 1000.0}  # ,(56,38):10000}
     # risk = 0.95
@@ -305,12 +318,12 @@ if __name__ == "__main__":
     #
 
     # change is increase or decrease of N loading (kg/day) for a given land use sector
-    lu_change_dict = {"dairy":-1.0,"snb":-1}
+    lu_change_dict = {"dairy":-1.0,"snb":+1}
     start = datetime.now()
-    df = sire_lu_scenario(lu_change_dict=lu_change_dict,risk=0.5)
+    loading_df,result_df = sire_lu_scenario(lu_change_dict=lu_change_dict,risk=0.5)
     sire_end = datetime.now()
 
-    plot_sire(df,show=True)#,18615.0])
+    plot_sire(result_df,loading_df,show=True)#,18615.0])
     plt.show()
     plot_end = datetime.now()
     sire_duration = (sire_end - start).total_seconds()
