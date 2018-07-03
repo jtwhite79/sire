@@ -1,6 +1,7 @@
 import os
 import shutil
 from datetime import datetime
+import json
 import numpy as np
 import pandas as pd
 import flopy
@@ -305,10 +306,95 @@ def sire_lu_scenario(lu_change_dict,risk=0.5):
     return loading_vec,std_df
 
 
+def sire_lu_scenario_json(lu_change_dict,risk=0.5):
+    tol = 1.0e-3
+    loading_df,df = sire_lu_scenario(lu_change_dict,risk=risk)
+    with open(os.path.join("sire", "sire_sfr.json"), "r") as f:
+        sfr_data = json.load(f)
+
+    with open(os.path.join("sire", "sire_grid.json"), "r") as f:
+        ucn_data = json.load(f)
+
+    with open(os.path.join("sire", "sire_grid.json"), "r") as f:
+        load_data = json.load(f)
+    loading_df.loc[:, "rowcol"] = loading_df.apply(lambda x: "{0:03d}_{1:03d}".format(x.i + 1, x.j + 1), axis=1)
+    loading_df.index = loading_df.rowcol
+    #loading_df.loc[:, "percent_change"] = (100.0 * (loading_df.loading_change / loading_df.base_load))
+    loading_df.loc[:, "normed"] = mpl.colors.Normalize()(loading_df.loading_change.values)
+    rdict = loading_df.loading_change.to_dict()
+    colormap = mpl.cm.jet
+    loading_df.loc[:, "color"] = [mpl.colors.rgb2hex(d[0:3]) for d in colormap(loading_df.normed.values)]
+    cdict = loading_df.color.to_dict()
+    for i, feature in enumerate(ucn_data["features"]):
+        rowcol = feature["properties"]["rowcol"]
+        if pd.isnull(loading_df.loc[rowcol, "loading_change"]):
+            rdict[rowcol] = 0.0
+            color = "#676565"
+        elif rowcol not in rdict:
+            rdict[rowcol] = 0.0
+            color = "#676565"
+        elif np.abs(loading_df.loc[rowcol, "loading_change"]) < tol:
+            color = "#676565"
+        else:
+            color = cdict[rowcol]
+        load_data["features"][i]["properties"]["style"]["fillColor"] = color
+        load_data["features"][i]["properties"]["style"]["color"] = color
+        load_data["features"][i]["properties"]["style"]["weight"] = 2.0
+        load_data["features"][i]["properties"]["response"] = rdict[rowcol]
+
+    df.loc[:, "response"] *= 1000
+
+    df_sfr = df.loc[df.obsnme.apply(lambda x: x.startswith('sfr')), :].copy()
+    df_sfr.loc[:, "reach"] = df_sfr.obsnme.apply(lambda x: int(x.split('_')[0][4:]))
+    df_sfr.index = df_sfr.reach
+    df_sfr.loc[:, "normed"] = mpl.colors.Normalize()(df_sfr.response.values)
+    rdict = df_sfr.response.to_dict()
+    colormap = mpl.cm.jet
+    df_sfr.loc[:, "color"] = [mpl.colors.rgb2hex(d[0:3]) for d in colormap(df_sfr.normed.values)]
+    cdict = df_sfr.color.to_dict()
+    for i, feature in enumerate(sfr_data["features"]):
+        reachid = feature["properties"]["reachID"]
+        if np.abs(df_sfr.loc[reachid, "response"]) < tol:
+            color = "#676565"
+        else:
+            color = cdict[reachid]
+        sfr_data["features"][i]["properties"]["style"]["fillColor"] = color
+        sfr_data["features"][i]["properties"]["style"]["color"] = color
+        sfr_data["features"][i]["properties"]["style"]["weight"] = 2.0
+        sfr_data["features"][i]["properties"]["response"] = rdict[reachid]
+
+    df_ucn = df.loc[df.index.map(lambda x: x.startswith("ucn")),:].copy()
+    df_ucn = df_ucn.loc[df_ucn.response.apply(np.abs)<1.0e+10,:]
+    df_ucn.loc[:, "i"] = df_ucn.obsnme.apply(lambda x: int(x.split('_')[2]))
+    df_ucn.loc[:, "j"] = df_ucn.obsnme.apply(lambda x: int(x.split('_')[3]))
+    df_ucn.loc[:,"rowcol"] = df_ucn.apply(lambda x: "{0:03d}_{1:03d}".format(x.i+1,x.j+1),axis=1)
+    df_ucn.index = df_ucn.rowcol
+    df_ucn.loc[:,"normed"] = mpl.colors.Normalize()(df_ucn.response.values)
+    rdict = df_ucn.response.to_dict()
+    colormap=mpl.cm.jet
+    df_ucn.loc[:,"color"] = [mpl.colors.rgb2hex(d[0:3]) for d in colormap(df_ucn.normed.values)]
+    cdict = df_ucn.color.to_dict()
+    for i,feature in enumerate(ucn_data["features"]):
+        rowcol = feature["properties"]["rowcol"]
+        if rowcol not in rdict:
+            rdict[rowcol] = 0.0
+            color = "#676565"
+        elif np.abs(df_ucn.loc[rowcol,"response"]) < tol:
+            color="#676565"
+        else:
+            color = cdict[rowcol]
+        ucn_data["features"][i]["properties"]["style"]["fillColor"] = color
+        ucn_data["features"][i]["properties"]["style"]["color"] = color
+        ucn_data["features"][i]["properties"]["style"]["weight"] = 2.0
+        ucn_data["features"][i]["properties"]["response"] = rdict[rowcol]
+
+    return sfr_data,ucn_data,load_data
+
+
 if __name__ == "__main__":
     #prep_numerics()
     #prep_plotting()
-    prep_lu_df()
+    #prep_lu_df()
 
     # spike_dict = {(69, 34): 1000.0}  # ,(56,38):10000}
     # risk = 0.95
@@ -318,15 +404,16 @@ if __name__ == "__main__":
 
     # change is increase or decrease of N loading (kg/day) for a given land use sector
     lu_change_dict = {"dairy":-1.0,"snb":+1}
-    start = datetime.now()
-    loading_df,result_df = sire_lu_scenario(lu_change_dict=lu_change_dict,risk=0.5)
-    sire_end = datetime.now()
+    # start = datetime.now()
+    # loading_df,result_df = sire_lu_scenario(lu_change_dict=lu_change_dict,risk=0.5)
+    # sire_end = datetime.now()
+    #
+    # plot_sire(result_df,loading_df,show=True)#,18615.0])
+    # plt.show()
+    # plot_end = datetime.now()
+    # sire_duration = (sire_end - start).total_seconds()
+    # plot_duration = (plot_end - sire_end).total_seconds()
+    # print("sire: {0}, plot: {1}".format(sire_duration,plot_duration))
 
-    plot_sire(result_df,loading_df,show=True)#,18615.0])
-    plt.show()
-    plot_end = datetime.now()
-    sire_duration = (sire_end - start).total_seconds()
-    plot_duration = (plot_end - sire_end).total_seconds()
-    print("sire: {0}, plot: {1}".format(sire_duration,plot_duration))
 
-
+    j1,j2,j3 = sire_lu_scenario_json(lu_change_dict=lu_change_dict, risk=0.5)
