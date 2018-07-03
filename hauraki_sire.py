@@ -13,11 +13,11 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.ticker as mticker
 
-import cartopy
-import cartopy.crs as ccrs
-import cartopy.io.img_tiles as cimgt
-from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
-import cartopy.feature
+# import cartopy
+# import cartopy.crs as ccrs
+# import cartopy.io.img_tiles as cimgt
+# from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
+# import cartopy.feature
 
 import shapefile
 
