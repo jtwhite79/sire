@@ -29,7 +29,6 @@ try:
     mprj = ccrs.epsg(2193)
 except:
     print("no mprj")
-    exit()
 
 def prep_lu_df():
     lu_cats = ["dairy", "forestry", "hort", "other", "snb"]
