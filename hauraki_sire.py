@@ -273,8 +273,14 @@ def sire(loading_df, risk=0.5):
         assert risk > 0.0
         assert risk < 1.0
         std_df.loc[:, "response_org"] = std_df.response
-        std_df.loc[:, "offset"] = (risk - 0.5) * std_df.obsval
+        std_df.loc[:,"logit"] = np.log(risk/(1.0 - risk))
+        #std_df.loc[:, "offset"] = (risk - 0.5) * std_df.obsval
+        std_df.loc[:,"offset"] = std_df.logit * std_df.obsval
         std_df.loc[:, "response"] += std_df.offset
+    else:
+        std_df.loc[:, "response_org"] = std_df.response
+        std_df.loc[:, "offset"] = 0.0
+        #std_df.loc[:, "response"] += std_df.offset
     std_df.to_csv(os.path.join(sire_d, "sire_results.csv"))
     return std_df
 
@@ -343,12 +349,16 @@ def sire_lu_scenario_json(lu_change_dict,risk=0.5):
         load_data["features"][i]["properties"]["response"] = rdict[rowcol]
 
     df.loc[:, "response"] *= 1000
+    df.loc[:,"response_org"] *= 1000
+    df.loc[:,"obsval"] *= 1000
 
     df_sfr = df.loc[df.obsnme.apply(lambda x: x.startswith('sfr')), :].copy()
     df_sfr.loc[:, "reach"] = df_sfr.obsnme.apply(lambda x: int(x.split('_')[0][4:]))
     df_sfr.index = df_sfr.reach
     df_sfr.loc[:, "normed"] = mpl.colors.Normalize()(df_sfr.response.values)
     rdict = df_sfr.response.to_dict()
+    rdict_org = df_sfr.response_org.to_dict()
+    std_dict = df_sfr.obsval.to_dict()
     colormap = mpl.cm.jet
     df_sfr.loc[:, "color"] = [mpl.colors.rgb2hex(d[0:3]) for d in colormap(df_sfr.normed.values)]
     cdict = df_sfr.color.to_dict()
@@ -362,6 +372,10 @@ def sire_lu_scenario_json(lu_change_dict,risk=0.5):
         sfr_data["features"][i]["properties"]["style"]["color"] = color
         sfr_data["features"][i]["properties"]["style"]["weight"] = 2.0
         sfr_data["features"][i]["properties"]["response"] = rdict[reachid]
+        sfr_data["features"][i]["properties"]["response_org"] = rdict_org[reachid]
+        sfr_data["features"][i]["properties"]["std"] = std_dict[reachid]
+
+
 
     df_ucn = df.loc[df.index.map(lambda x: x.startswith("ucn")),:].copy()
     df_ucn = df_ucn.loc[df_ucn.response.apply(np.abs)<1.0e+10,:]
@@ -371,6 +385,8 @@ def sire_lu_scenario_json(lu_change_dict,risk=0.5):
     df_ucn.index = df_ucn.rowcol
     df_ucn.loc[:,"normed"] = mpl.colors.Normalize()(df_ucn.response.values)
     rdict = df_ucn.response.to_dict()
+    rdict_org = df_ucn.response_org.to_dict()
+    std_dict = df_ucn.obsval.to_dict()
     colormap=mpl.cm.jet
     df_ucn.loc[:,"color"] = [mpl.colors.rgb2hex(d[0:3]) for d in colormap(df_ucn.normed.values)]
     cdict = df_ucn.color.to_dict()
@@ -378,6 +394,8 @@ def sire_lu_scenario_json(lu_change_dict,risk=0.5):
         rowcol = feature["properties"]["rowcol"]
         if rowcol not in rdict:
             rdict[rowcol] = 0.0
+            rdict_org[rowcol] = 0.0
+            std_dict[rowcol] = 0.0
             color = "#676565"
         elif np.abs(df_ucn.loc[rowcol,"response"]) < tol:
             color="#676565"
@@ -387,6 +405,9 @@ def sire_lu_scenario_json(lu_change_dict,risk=0.5):
         ucn_data["features"][i]["properties"]["style"]["color"] = color
         ucn_data["features"][i]["properties"]["style"]["weight"] = 2.0
         ucn_data["features"][i]["properties"]["response"] = rdict[rowcol]
+        ucn_data["features"][i]["properties"]["response_org"] = rdict_org[rowcol]
+        ucn_data["features"][i]["properties"]["std"] = std_dict[rowcol]
+
 
     return sfr_data,ucn_data,load_data
 
