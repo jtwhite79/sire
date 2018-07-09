@@ -2,6 +2,7 @@ import os
 import shutil
 from datetime import datetime
 import json
+import scipy
 import numpy as np
 import pandas as pd
 import flopy
@@ -272,13 +273,16 @@ def sire(loading_df, risk=0.5):
     if risk != 0.5:
         assert risk > 0.0
         assert risk < 1.0
+        probit = -np.sqrt(2.0) * scipy.special.erfcinv((2.0 * risk))
         std_df.loc[:, "response_org"] = std_df.response
-        std_df.loc[:,"logit"] = np.log(risk/(1.0 - risk))
+        #std_df.loc[:,"logit"] = np.log(risk/(1.0 - risk))
         #std_df.loc[:, "offset"] = (risk - 0.5) * std_df.obsval
-        std_df.loc[:,"offset"] = std_df.logit * std_df.obsval
+        std_df.loc[:,"probit"] = probit
+        std_df.loc[:,"offset"] = std_df.probit * std_df.obsval
         std_df.loc[:, "response"] += std_df.offset
     else:
         std_df.loc[:, "response_org"] = std_df.response
+        std_df.loc[:, "probit"] = 0.0
         std_df.loc[:, "offset"] = 0.0
         #std_df.loc[:, "response"] += std_df.offset
     std_df.to_csv(os.path.join(sire_d, "sire_results.csv"))
@@ -359,6 +363,8 @@ def sire_lu_scenario_json(lu_change_dict,risk=0.5):
     rdict = df_sfr.response.to_dict()
     rdict_org = df_sfr.response_org.to_dict()
     std_dict = df_sfr.obsval.to_dict()
+    logit_dict = df_sfr.probit.to_dict()
+    off_dict = df_sfr.offset.to_dict()
     colormap = mpl.cm.jet
     df_sfr.loc[:, "color"] = [mpl.colors.rgb2hex(d[0:3]) for d in colormap(df_sfr.normed.values)]
     cdict = df_sfr.color.to_dict()
@@ -374,6 +380,10 @@ def sire_lu_scenario_json(lu_change_dict,risk=0.5):
         sfr_data["features"][i]["properties"]["response"] = rdict[reachid]
         sfr_data["features"][i]["properties"]["response_org"] = rdict_org[reachid]
         sfr_data["features"][i]["properties"]["std"] = std_dict[reachid]
+        sfr_data["features"][i]["properties"]["logit"] = logit_dict[reachid]
+        sfr_data["features"][i]["properties"]["offset"] = off_dict[reachid]
+
+
 
 
 
