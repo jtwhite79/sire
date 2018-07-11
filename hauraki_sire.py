@@ -422,7 +422,25 @@ def sire_lu_scenario_json(lu_change_dict,risk=0.5):
     return sfr_data,ucn_data,load_data
 
 
+def filter_resp_mat():
+	mat = pyemu.Matrix.from_binary(os.path.join(sire_d,"resp_mat.jcb"))
+	#x = mat.x
+	#x[x<1.0e-15] = 0.0
+	mat.to_binary(os.path.join(sire_d,"test.jcb"),droptol=1.0e-13)
+
+
+
+	x = mat.x.flatten()
+	x = x[x>0.0]
+	x = np.log10(x)
+	x = x[~np.isnan(x)]
+	print(x.min(),x.max())
+	plt.hist(x)
+	plt.show()
+
+
 if __name__ == "__main__":
+	filter_resp_mat()
     #prep_numerics()
     #prep_plotting()
     #prep_lu_df()
@@ -434,7 +452,7 @@ if __name__ == "__main__":
     #
 
     # change is increase or decrease of N loading (kg/day) for a given land use sector
-    lu_change_dict = {"dairy":-1.0,"snb":+1}
+    #lu_change_dict = {"dairy":-1.0,"snb":+1}
     # start = datetime.now()
     # loading_df,result_df = sire_lu_scenario(lu_change_dict=lu_change_dict,risk=0.5)
     # sire_end = datetime.now()
@@ -447,4 +465,5 @@ if __name__ == "__main__":
     # print("sire: {0}, plot: {1}".format(sire_duration,plot_duration))
 
 
-    j1,j2,j3 = sire_lu_scenario_json(lu_change_dict=lu_change_dict, risk=0.5)
+    #j1,j2,j3 = sire_lu_scenario_json(lu_change_dict=lu_change_dict, risk=0.5)
+
