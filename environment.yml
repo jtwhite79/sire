@@ -9,6 +9,6 @@ dependencies:
   - pandas
   - netcdf4
   - pyshp
-  - ipyleaflet
+  - ipyleaflet=0.8.1
 
 prefix: /home/parallels/miniconda/envs/py36
