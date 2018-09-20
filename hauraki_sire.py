@@ -418,7 +418,13 @@ def sire_lu_scenario_json(lu_change_dict, risk=0.5):
         ucn_data["features"][i]["properties"]["response_org"] = rdict_org[rowcol]
         ucn_data["features"][i]["properties"]["std"] = std_dict[rowcol]
 
-    return sfr_data, ucn_data, load_data
+
+    lim_dict = {}
+    lim_dict["load"] = [loading_df.loading_change.min(),loading_df.loading_change.max()]
+    lim_dict["ucn"] = [df_ucn.response.min(),df_ucn.response.max()]
+    lim_dict["sfr"] = [df_sfr.response.min(),df_sfr.response.max()]
+
+    return sfr_data, ucn_data, load_data,lim_dict
 
 
 def filter_resp_mat():
