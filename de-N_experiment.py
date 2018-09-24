@@ -34,12 +34,12 @@ def setup_mt_model(mws = model_ws):
     mt = flopy.mt3d.Mt3dms("den_mt3d",model_ws=mws,modflowmodel=m,exe_name="mt3dusgs",external_path='.')
     nper = 20
     perlen = np.zeros((nper)) + 365.25
-    d = flopy.mt3d.Mt3dBtn(mt,nper=nper,sconc=0.5/1000.0,prsity=0.05,
+    d = flopy.mt3d.Mt3dBtn(mt,nper=nper,sconc=0.0,prsity=0.1,
                            perlen=perlen,nstp=1,tsmult=1.0)
     d = flopy.mt3d.Mt3dGcg(mt)
     d = flopy.mt3d.Mt3dAdv(mt,mixelm=0)
     d = flopy.mt3d.Mt3dDsp(mt,al=0.01,trpt=0.1)
-    d = flopy.mt3d.Mt3dRct(mt,isothm=0,ireact=1,igetsc=0,rc1=0.001)
+    d = flopy.mt3d.Mt3dRct(mt,isothm=0,ireact=1,igetsc=0,rc1=0.01)
     id = flopy.mt3d.Mt3dSsm.itype_dict()
     ssm_data_load = [[0,0,m.ncol-1,100.0,15],[0,0,0,0.0,id["GHB"]],[0,0,m.ncol-1,0.0,id["GHB"]]]
     ssm_data = {kper:ssm_data_load for kper in range(mt.nper)}
@@ -138,6 +138,9 @@ def setup_pest():
 
     pst.control_data.noptmax = 0
     pst_helper.pst.write(os.path.join("template","den.pst"))
+    shutil.copy2(os.path.join("pestpp.exe"),os.path.join("template","pestpp.exe"))
+    shutil.copy2(os.path.join("mfnwt.exe"),os.path.join("template","mfnwt.exe"))
+    shutil.copy2(os.path.join("mt3dusgs.exe"),os.path.join("template","mt3dusgs.exe"))
     pyemu.os_utils.run("pestpp den.pst",cwd="template")
 
 
@@ -165,6 +168,9 @@ def run_test1():
         pst_name = "test_load_{0}.pst".format(load)
 
         pst.write(os.path.join("template",pst_name))
+        shutil.copy2(os.path.join("pestpp.exe"),os.path.join("template","pestpp.exe"))
+        shutil.copy2(os.path.join("mfnwt.exe"),os.path.join("template","mfnwt.exe"))
+        shutil.copy2(os.path.join("mt3dusgs.exe"),os.path.join("template","mt3dusgs.exe"))
         pyemu.os_utils.run("pestpp {0}".format(pst_name),cwd="template")
 
         df = pyemu.Jco.from_binary(os.path.join("template",pst_name.replace(".pst",".jcb"))).to_dataframe()
@@ -183,6 +189,7 @@ def run_test1():
         pst_name = "test_load_{0}.pst".format(load)
 
         pst.write(os.path.join("template", pst_name))
+        shutil.copy2(os.path.join("pestpp.exe"),os.path.join("template","pestpp.exe"))
         pyemu.os_utils.run("pestpp {0}".format(pst_name), cwd="template")
 
         df = pyemu.Jco.from_binary(os.path.join("template", pst_name.replace(".pst", ".jcb"))).to_dataframe()
@@ -193,6 +200,53 @@ def run_test1():
     df_den = pd.concat(dfs, axis=1)
     df_den.to_csv(os.path.join("template", "den.csv"))
 
+def run_test2():
+    pst = pyemu.Pst(os.path.join("template","den.pst"))
+    base_res = pst.res
+    par = pst.parameter_data
+    par.loc[:,"partrans"] = "none"
+    load_pars = par.loc[par.pargp=="load","parnme"]
+    rc_pars = par.loc[par.pargp!="load","parnme"]
+
+    par.loc[rc_pars,"parval1"] = 0.0
+    pst.control_data.noptmax = 0 # fwd only
+    cout = []
+
+    for load in [0.1,1,10,100]:
+        par.loc[load_pars,"parval1"] = load
+        pst_name = "test_load_{0}.pst".format(load)
+
+        pst.write(os.path.join("template",pst_name))
+        shutil.copy2(os.path.join("pestpp.exe"),os.path.join("template","pestpp.exe"))
+        shutil.copy2(os.path.join("mfnwt.exe"),os.path.join("template","mfnwt.exe"))
+        shutil.copy2(os.path.join("mt3dusgs.exe"),os.path.join("template","mt3dusgs.exe"))
+        pyemu.os_utils.run("pestpp {0}".format(pst_name),cwd="template")
+
+        df = pd.read_table(os.path.join("template","mt3d001.ucn.dat"),index_col=0,sep=' ')
+        co = df.loc["ucn1_00_000_000_009",:] # just downstream-most cell
+        cout.append(co)
+    couts = pd.concat(cout)
+    print(couts)
+    couts.to_csv(os.path.join("template","no_den_conc.csv"))
+
+    par.loc[rc_pars, "parval1"] = 1.0
+    pst.control_data.noptmax = 0
+    cout = []
+
+    for load in [0.1,1,10,100]:
+        par.loc[load_pars, "parval1"] = load
+        pst_name = "test_load_{0}.pst".format(load)
+
+        pst.write(os.path.join("template", pst_name))
+        shutil.copy2(os.path.join("pestpp.exe"),os.path.join("template","pestpp.exe"))
+        pyemu.os_utils.run("pestpp {0}".format(pst_name), cwd="template")
+
+        df = pd.read_table(os.path.join("template","mt3d001.ucn.dat"),index_col=0,sep=' ')
+        co = df.loc["ucn1_00_000_000_009",:] # just downstream-most cell
+        cout.append(co)
+    couts = pd.concat(cout)
+    print(couts)
+    couts.to_csv(os.path.join("template","den_conc.csv"))
 
 def plot_test1():
     pst = pyemu.Pst(os.path.join("template", "den.pst"))
@@ -223,7 +277,29 @@ def plot_test1():
     plt.savefig(os.path.join("template","test1.pdf"))
     plt.close(fig)
 
+def plot_test2():
+    df_noden = pd.read_csv(os.path.join("template","no_den_conc.csv"),index_col=0,header=None)
+    print(df_noden)
 
+    df_den = pd.read_csv(os.path.join("template", "den_conc.csv"),index_col=0,header=None)
+    print(df_den)
+
+    dfs = pd.concat((df_noden,df_den),axis=1,)
+    dfs.columns = ["first-order de-N rate = 0.0 $d^{-1}$","first-order de-N rate = 0.01 $d^{-1}$"]
+    dfs.index = ["0.1kg","1kg","10kg","100kg"]
+
+    fig = plt.figure()
+    ax = plt.subplot(111)
+
+    dfs = np.log10(dfs)
+    dfs.plot(kind="line",ax=ax,)
+
+    ax.set_ylabel("$log_{10}$ conc @ outflow")
+    ax.set_xlabel("$log_{10}$ load")
+    ax.set(xticks=range(len(dfs.index)), xticklabels=(dfs.index))
+
+    plt.savefig(os.path.join("template","test2.pdf"))
+    plt.close(fig)
 
 
 if __name__ == "__main__":
@@ -232,4 +308,6 @@ if __name__ == "__main__":
     #setup_pest()
     #write_ssm_tpl("template")
     #run_test1()
-    plot_test1()
+    #plot_test1()
+    run_test2()
+    plot_test2()
