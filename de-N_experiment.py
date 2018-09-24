@@ -222,7 +222,7 @@ def plot_test1():
 
     plt.savefig(os.path.join("template","test1.pdf"))
     plt.close(fig)
-    
+
 
 
 
