@@ -31,7 +31,7 @@ sire_d = "sire"
 try:
     mprj = ccrs.epsg(2193)
 except:
-    print("no mprj")
+    pass
 
 lu_cats = ["dairy", "forestry", "hort", "other", "snb"]
 
