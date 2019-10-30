@@ -3,6 +3,7 @@ import shutil
 from datetime import datetime
 import json
 import scipy
+from scipy import special
 import numpy as np
 import pandas as pd
 import flopy
@@ -273,7 +274,8 @@ def sire(loading_df, risk=0.5):
     if risk != 0.5:
         assert risk > 0.0
         assert risk < 1.0
-        probit = -np.sqrt(2.0) * scipy.special.erfcinv((2.0 * risk))
+        probit = -np.sqrt(2.0) * special.erfcinv((2.0 * risk))
+
         std_df.loc[:, "response_org"] = std_df.response
         # std_df.loc[:,"logit"] = np.log(risk/(1.0 - risk))
         # std_df.loc[:, "offset"] = (risk - 0.5) * std_df.obsval
