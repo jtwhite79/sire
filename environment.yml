@@ -4,6 +4,7 @@ channels:
   - defaults
 dependencies:
   - numpy
+  - scipy
   - matplotlib
   - pandas
   - ipyleaflet
