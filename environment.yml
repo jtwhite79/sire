@@ -4,14 +4,12 @@ channels:
   - defaults
 dependencies:
   - numpy
-  - scipy
   - matplotlib
   - pandas
-  - netcdf4
-  - pyshp
   - ipyleaflet
   - ipywidgets
   - appmode
+  - pip
   - pip:
     - flopy
     - pyemu
