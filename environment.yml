@@ -9,7 +9,8 @@ dependencies:
   - pandas
   - netcdf4
   - pyshp
-  - ipyleaflet=0.8.1
+  - ipyleaflet
+  - ipywidgets
   - appmode
   - pip:
     - flopy
